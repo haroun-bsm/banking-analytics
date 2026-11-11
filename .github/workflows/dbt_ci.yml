@@ -1,0 +1,89 @@
+name: dbt CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DBT_PROFILES_DIR: dbt_project
+
+jobs:
+  dbt-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: dbt_user
+          POSTGRES_PASSWORD: dbt_pass
+          POSTGRES_DB: banking_dw
+        ports:
+          - 5433:5433
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install dbt-postgres psycopg2-binary faker pandas sqlalchemy
+
+      - name: Setup PostgreSQL schemas
+        run: |
+          PGPASSWORD=dbt_pass psql -h localhost -U dbt_user -d banking_dw -c "CREATE SCHEMA IF NOT EXISTS raw;"
+          PGPASSWORD=dbt_pass psql -h localhost -U dbt_user -d banking_dw -c "CREATE SCHEMA IF NOT EXISTS staging;"
+          PGPASSWORD=dbt_pass psql -h localhost -U dbt_user -d banking_dw -c "CREATE SCHEMA IF NOT EXISTS marts;"
+          PGPASSWORD=dbt_pass psql -h localhost -U dbt_user -d banking_dw -c "CREATE SCHEMA IF NOT EXISTS kpis;"
+
+      - name: Initialize raw tables
+        run: |
+          PGPASSWORD=dbt_pass psql -h localhost -U dbt_user -d banking_dw -f warehouse/init/raw_schema.sql
+
+      - name: Generate synthetic data
+        run: |
+          cd data_generation && python main.py
+
+      - name: Install dbt dependencies
+        working-directory: dbt_project
+        run: dbt deps
+
+      - name: dbt debug
+        working-directory: dbt_project
+        run: dbt debug
+
+      - name: dbt run (staging)
+        working-directory: dbt_project
+        run: dbt run --select staging
+
+      - name: dbt snapshot
+        working-directory: dbt_project
+        run: dbt snapshot
+
+      - name: dbt run (marts)
+        working-directory: dbt_project
+        run: dbt run --select marts
+
+      - name: dbt run (kpis)
+        working-directory: dbt_project
+        run: dbt run --select kpis
+
+      - name: dbt test
+        working-directory: dbt_project
+        run: dbt test
+
+      - name: Generate docs
+        working-directory: dbt_project
+        run: dbt docs generate

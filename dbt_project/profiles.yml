@@ -1,0 +1,12 @@
+banking_dw:
+  target: ci
+  outputs:
+    ci:
+      type: postgres
+      host: localhost
+      port: 5433
+      user: dbt_user
+      password: dbt_pass
+      dbname: banking_dw
+      schema: staging
+      threads: 2

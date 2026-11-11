@@ -1,0 +1,29 @@
+name: banking_dw
+version: '1.0'
+config-version: 2
+
+profile: banking_dw
+
+model-paths: ["dbt_project/models"]
+snapshot-paths: ["dbt_project/snapshots"]
+macro-paths: ["dbt_project/macros"]
+test-paths: ["dbt_project/tests"]
+
+models:
+  banking_dw:
+    staging:
+      +schema: staging
+      +materialized: view
+
+    marts:
+      +schema: marts
+      +materialized: table
+
+    kpis:
+      +schema: kpis
+      +materialized: table     
+snapshots:
+  banking_dw:
+    +target_schema: marts
+    +strategy: timestamp
+    +updated_at: updated_at

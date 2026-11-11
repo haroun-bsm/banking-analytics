@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: dim_customer
+    columns:
+      - name: customer_sk
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+      - name: segment
+        tests:
+          - accepted_values:
+              values: ['RETAIL', 'SME', 'CORPORATE']
+
+  - name: dim_account
+    columns:
+      - name: account_sk
+        tests: [not_null, unique]
+      - name: account_type
+        tests:
+          - accepted_values:
+              values: ['CHECKING', 'SAVINGS', 'TERM_DEPOSIT']
+
+  - name: fact_transactions
+    columns:
+      - name: transaction_sk
+        tests: [not_null, unique]
+      - name: account_sk
+        tests: [not_null]
+      - name: amount
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+  - name: fact_loans
+    columns:
+      - name: loan_sk
+        tests: [not_null, unique]
+      - name: is_npl
+        tests: [not_null]
